@@ -7,6 +7,9 @@ import os
 from titan_client import generate_titan_embedding
 from opensearch_client import search_similar_skus
 from ultralytics import YOLO
+import tempfile
+import uuid
+import numpy as np
 
 app = FastAPI()
 
@@ -16,17 +19,11 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 model = YOLO("../models/best_100epochs.pt")
 
 @app.post("/process-skus/")
-async def process_skus(files: List[UploadFile] = File(...)):
-
-
+async def process_skus(file: UploadFile = File(...)):
     results = []
+    cropped_images, cropped_files=getCroppedSkus(file)
 
-    for file in files:
-        file_path = os.path.join(UPLOAD_DIR, file.filename)
-
-        # Save uploaded file
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+    for image, file_path in zip(cropped_images, cropped_files):
 
         try:
             embedding = generate_titan_embedding(file_path)
@@ -47,39 +44,35 @@ async def process_skus(files: List[UploadFile] = File(...)):
     return {"results": results}
 
 
-@app.post("/process-skus/2")
-async def process_skus2(file: UploadFile = File(...)):
-    output_dir = "cropped_skus"
+def getCroppedSkus(file: UploadFile):
+    unique_id = str(uuid.uuid4())  # Generate a unique ID
+    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+        shutil.copyfileobj(file.file, temp_file)
+        temp_file_path = temp_file.name
+
+    image = cv2.imread(temp_file_path)
+    os.remove(temp_file_path)
+
+    detections = model(image)[0]  # Get first frame of detections
+
+    output_dir = f"cropped_skus/{unique_id}"
     os.makedirs(output_dir, exist_ok=True)
-    file_path = os.path.join("uploads", file.filename)
 
-    # Save uploaded file
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    cropped_images = []
+    cropped_files = []
 
-    try:
-        # Load image
-        image = cv2.imread(file_path)
+    for i, det in enumerate(detections.boxes.data):
+        x1, y1, x2, y2, conf, cls = det.tolist()
 
-        # Run YOLO object detection
-        detections = model(image)[0]  # Get first frame of detections
+        if conf > 0.4:  # Confidence threshold
+            x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+            sku_crop = image[y1:y2, x1:x2]
 
-        cropped_files = []
-        for i, det in enumerate(detections.boxes.data):
-            x1, y1, x2, y2, conf, cls = det.tolist()
+            cropped_filename = f"sku_{i}_{unique_id}.jpg"
+            cropped_path = os.path.join(output_dir, cropped_filename)
+            cv2.imwrite(cropped_path, sku_crop)
 
-            if conf >= 0:  # Confidence threshold
-                x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
-                sku_crop = image[y1:y2, x1:x2]
+            cropped_images.append(sku_crop)
+            cropped_files.append(cropped_path)
 
-                # Save cropped SKU image
-                cropped_filename = f"sku_{i}_{file.filename}"
-                cropped_path = os.path.join(output_dir, cropped_filename)
-                cv2.imwrite(cropped_path, sku_crop)
-                cropped_files.append(cropped_filename)
-
-        os.remove(file_path)
-        return {"filename": file.filename, "cropped_skus": cropped_files}
-
-    except Exception as e:
-        return {"filename": file.filename, "error": str(e)}
+    return cropped_images, cropped_files
