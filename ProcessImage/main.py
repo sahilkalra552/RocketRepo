@@ -41,8 +41,8 @@ async def process_file(file: UploadFile):
 
         return {
             "filename": file.filename,
-            "detected_text": detected_text,
-            "matched_sku": matched_sku
+            "matched_sku": matched_sku,
+            "product":len(matched_sku)>0
         }
 
     except Exception as e:

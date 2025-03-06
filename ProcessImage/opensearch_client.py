@@ -10,7 +10,7 @@ def calculate_text_similarity(text1: str, text2: str) -> float:
     return SequenceMatcher(None, text1.lower(), text2.lower()).ratio()
 
 
-def search_top_sku_with_text_matching(embedding, detected_text_list, k=5):
+def search_top_sku_with_text_matching(embedding, detected_text_list, k=3):
     """Search OpenSearch for top K similar SKUs and apply text matching."""
 
     search_url = f"{OPENSEARCH_ENDPOINT}/{OPENSEARCH_INDEX}/_search"
@@ -46,14 +46,16 @@ def search_top_sku_with_text_matching(embedding, detected_text_list, k=5):
         item_name = result["_source"]["item_name"]
 
         ocr_similarity = calculate_text_similarity(item_name, user_image_extracted_text)
-        final_results.append({
-            "sku_code": result["_source"]["sku_code"],
-            "item_name": item_name,
-            "category": result["_source"]["category"],
-            "image_s3_path": result["_source"]["image_s3_path"],
-            "score": result["_score"],
-            "ocr_similarity": ocr_similarity,
-            "ocr_detected_text": user_image_extracted_text
-        })
+        if (result["_score"] > 0.6 and ocr_similarity > 0.36) or result["_score"] > 0.8:  # Corrected syntax
+            final_results.append({
+                "sku_code": result["_source"]["sku_code"],
+                "item_name": item_name,
+                "category": result["_source"]["category"],
+                "image_s3_path": result["_source"]["image_s3_path"],
+                "score": result["_score"],
+                "ocr_similarity": ocr_similarity,
+                "ocr_detected_text": user_image_extracted_text
+            })
 
+    final_results.sort(key=lambda x: x["ocr_similarity"], reverse=True)
     return final_results
