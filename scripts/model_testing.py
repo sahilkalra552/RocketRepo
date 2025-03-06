@@ -4,7 +4,7 @@ from ultralytics import YOLO
 
 
 model = YOLO("/Users/satvikchaudhary/PycharmProjects/ProjectIR/models/best_100epochs.pt")
-img_path = "/Users/satvikchaudhary/Downloads/IMG_5125.jpg"
+img_path = "/Users/satvikchaudhary/PycharmProjects/ProjectIR/data/archive/SKU110K_fixed/dataset_yolo/test/images/test_0.jpg"
 results = model(img_path)
 
 def show_with_labels():

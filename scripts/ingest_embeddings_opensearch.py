@@ -15,7 +15,7 @@ PASSWORD = "123Applicate$"
 HEADERS = {"Content-Type": "application/json"}
 
 # Paths
-EXCEL_PATH = "/Users/satvikchaudhary/Downloads/IdealImagesInfoFinal.xlsx"
+EXCEL_PATH = "/Users/satvikchaudhary/Desktop/Hackathon/IdealImagesInfoFinall.xlsx"
 EMBEDDINGS_FILE = "/Users/satvikchaudhary/PycharmProjects/ProjectIR/configs/ideal_image_embeddings.json"
 
 def load_metadata():
